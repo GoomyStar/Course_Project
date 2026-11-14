@@ -466,8 +466,8 @@ class Wallz(Problem):
    If maxPlies moves are made without a winner the game is a draw.'''
     
    HEURISTIC_WEIGHTS = {
-      'shared': {},
-      'custom': {},
+      'shared': {'path_diff': 10.0, 'walls_diff': 1.0},
+      'custom': {'path_diff': 10.0, 'walls_diff': 1.0, 'my_progress': 2.0, 'opp_progress': -2.0},
    }
    def __init__(self, size=9, walls=10, maxPlies=200):
       self.N = size
@@ -657,7 +657,39 @@ class Wallz(Problem):
          f['my_progress'] = (N - 1 - mine) / N
          f['opp_progress'] = (N - 1 - theirs) / N
       return f
-      def render(self, state=None):
-         # TODO: text grid with pawns and walls
-         pass
-      # LAST: fill HEURISTIC_WEIGHTS 
+   def render(self, state=None):
+      if state is None:
+         state = self.state
+      H = self._H(state)
+      V = self._V(state)
+      N = self.N
+      text = ""
+      for r in range(N):
+         line = ""
+         for c in range(N):
+            if state[0] == r and state[1] == c:
+               line = line + "A"
+            elif state[2] == r and state[3] == c:
+               line = line + "B"
+            else:
+               line = line + "."
+            # a vertical wall to the right of this cell?
+            if c < N - 1:
+               if (r < N - 1 and V[r][c] == 1) or (r > 0 and V[r - 1][c] == 1):
+                  line = line + "|"
+               else:
+                  line = line + " "
+         text = text + line + "\n"
+         # the line between this row and the next: horizontal walls
+         if r < N - 1:
+            under = ""
+            for c in range(N):
+               if (c < N - 1 and H[r][c] == 1) or (c > 0 and H[r][c - 1] == 1):
+                  under = under + "-"
+               else:
+                  under = under + " "
+               if c < N - 1:
+                  under = under + " "
+            text = text + under + "\n"
+      text = text + "(A walls: " + str(int(state[4])) + "  B walls: " + str(int(state[5])) + "  to move: " + str(int(state[6])) + ")"
+      return text
