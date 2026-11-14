@@ -6,23 +6,30 @@ import numpy as np
 import cv2
 
 class Game:
-    def __init__(self, problem, pZero, pOne,verbose=True):
-      self.problem = problem      
-      self.players = [pZero,pOne]   
-      self.verbose = verbose   
+    # maxMoves lets a demo stop a long game early (None = play until the game ends)
+    def __init__(self, problem, pZero, pOne, verbose=True, maxMoves=None):
+      self.problem = problem
+      self.players = [pZero,pOne]
+      self.verbose = verbose
+      self.maxMoves = maxMoves
       if self.verbose:
-         self.problem.showState()               
+         self.problem.showState()
     def playGame(self):
-      pCur=0
-      while self.problem.isTerminal()==False:           
-         move = self.players[pCur].getMove(self.problem)           
+      played = 0
+      while self.problem.isTerminal()==False:
+         if self.maxMoves is not None and played >= self.maxMoves:
+            print(f"(demo stopped after {played} moves; game not finished)")
+            return -1
+         # ask the problem whose turn it is, instead of alternating blindly:
+         # Mancala gives the same player another turn after landing in their store
+         pCur = self.problem.getCurrentPlayer()
+         move = self.players[pCur].getMove(self.problem)
          self.problem.doMove(move)
+         played += 1
          if self.verbose:
+            print(f"Move {self.problem.ticks}: {self.players[pCur]} (player {pCur}) played {move}")
             self.problem.showState()
-            print(f"Move {self.problem.ticks}:")
-            print(self.problem.state)
-         pCur = np.abs(pCur-1)
-        
+
       wIndex = self.problem.getWinner()
       winner = self.players[wIndex]
       if wIndex == -1:
@@ -32,8 +39,8 @@ class Game:
       if self.verbose:
          self.problem.showState(4000)
       return wIndex
- 
- 
+
+
 class Problem:
    '''Shared helpers for every problem (see the interface in the module docstring).'''
    HEURISTIC_WEIGHTS = {}   # featureSet name -> {feature: hand-picked weight}
@@ -72,6 +79,10 @@ class TicTacToe:
    def __init__(self):
       self.state = np.zeros((3,3))      
       self.ticks=-1      
+   def getCurrentPlayer(self, state=None):
+      if state is None:
+         state = self.state
+      return int(np.sum(np.abs(state)) % 2)     # even number of marks -> player 0
    def getLegalMoves(self, state=None):
       if state is None:
          state = self.state
@@ -455,10 +466,10 @@ class Mancala(Problem):
  
 class Wallz(Problem):
    '''Wallz = Quoridor. Race your pawn to the opposite side of the board. On your turn
-   either move your pawn one step (with Quoridor's jump rules) or place a wall that
-   lengthens the opponent's path. A wall may never completely cut a pawn off from its goal.
+   either move your pawn one step (up/down/left/right; pawns do not block each other
+   and there are no jumps) or place a wall that lengthens the opponent's path. A wall may
+   never completely cut a pawn off from its goal.
 
-   Example:
    Player 0 starts at the bottom middle and must reach row 0. Player 1 starts at the top
    middle and must reach row size-1. Defaults are the standard 9x9 board with 10 walls
    each (up to 2*8*8 = 128 wall placements plus pawn moves per turn), but size,
