@@ -521,31 +521,90 @@ class Wallz(Problem):
          nr = r + d[0]
          nc = c + d[1]
          # stay on the board
-         if nr < 0 or nr >= self.N or nc < ___ or nc >= self.N:
+         if nr < 0 or nr >= self.N or nc < 0 or nc >= self.N:
             continue
          # is a wall in the way?
          if self._isBlocked(state, r, c, nr, nc):
             continue
          moves.append((0, nr, nc))
       return moves
-      def _shortestPath(self, state, player):
-         # TODO: BFS to goal row; steps or None.  CHECK: empty 9x9 -> 8
-         pass
+   def shortestPath(self, state, player):
+      r = int(state[2 * player])
+      c = int(state[2 * player + 1])
+      if player == 0:
+         goal = 0
+      else:
+         goal = self.N - 1
+
+      if r == goal:
+         return 0
+
+      visited = [(r, c)]
+      frontier = [(r, c)]            # squares reached in the previous round
+      steps = 0
+      while len(frontier) > 0:
+         steps = steps + 1
+         next_frontier = []
+         for square in frontier:
+            for d in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+               nr = square[0] + d[0]
+               nc = square[1] + d[1]
+               if nr < 0 or nr >= self.N or nc < 0 or nc >= self.N:
+                  continue
+               if (nr, nc) in visited:
+                  continue
+               if self._isBlocked(state, square[0], square[1], nr, nc):
+                  continue
+               if nr == goal:
+                  return steps
+               visited.append((nr, nc))
+               next_frontier.append((nr, nc))
+         frontier = next_frontier
+      return None                    # no way to reach the goal row
       def _wallMoves(self, state, player):
          # TODO: no overlap/crossing; BOTH players must still have a path.  CHECK: opening -> 128
          pass
       def getLegalMoves(self, state=None):
          # TODO: pawn moves + wall moves.  CHECK: opening -> 131
          pass
-      def getSuccessor(self, move, state):
-         # TODO: copy; apply pawn move or wall (-1 wall left); plies+1; flip player
-         pass
-      def isTerminal(self, state=None):
-         # TODO: a pawn on its goal row, or plies >= maxPlies
-         pass
-      def getWinner(self, state=None):
-         # TODO: 0/1 for goal reached, -1 for draw or not over
-         pass
+   def getSuccessor(self, move, state):
+      new = state.copy()
+      player = int(new[6])
+      kind = move[0]
+      r = move[1]
+      c = move[2]
+      if kind == 0:                      # pawn move
+         new[2 * player] = r
+         new[2 * player + 1] = c
+      elif kind == 1:                    # horizontal wall
+         self._H(new)[r][c] = 1
+         new[4 + player] = new[4 + player] - 1
+      else:                              # vertical wall
+         self._V(new)[r][c] = 1
+         new[4 + player] = new[4 + player] - 1
+      new[6] = 1 - player                # the other player moves next
+      new[7] = new[7] + 1                # one more ply played
+      return new
+
+   def isTerminal(self, state=None):
+      if state is None:
+         state = self.state
+      if state[0] == 0:                  # player 0 reached the top row
+         return True
+      if state[2] == self.N - 1:         # player 1 reached the bottom row
+         return True
+      if state[7] >= self.maxPlies:
+         return True
+      return False
+
+   def getWinner(self, state=None):
+      if state is None:
+         state = self.state
+      if state[0] == 0:
+         return 0
+      if state[2] == self.N - 1:
+         return 1
+      return -1
       def getFeatures(self, state, player, featureSet='shared'):
          # TODO: path_diff, walls_diff (+ my_progress, opp_progress for 'custom'), scaled to ~[-1,1]
          pass
