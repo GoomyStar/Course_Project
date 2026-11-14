@@ -319,7 +319,7 @@ class Mancala(Problem):
          [0..5]   player 0's pits (left to right)      [6]  player 0's store
          [7..12]  player 1's pits                       [13] player 1's store
          [14]     player to move (0 or 1)
-    A move is a pit number 0..5 counted from the player's left. Seeds are placed
+    A move is a pit number 0..5 counted from the players's left. Seeds are placed
     counter-clockwise, skipping the opponent's store.
       * Last seed in your own store -> you move again (turns do NOT always alternate).
       * Last seed in an empty pit on your side, opposite pit non-empty -> capture both.
@@ -331,10 +331,44 @@ class Mancala(Problem):
        'shared': {},
        'custom': {},
     }
+
+   def __init__(self):
+      # TODO: self.state = length-15 array: SEEDS in every pit, 0 in both stores,
+      #       player 0 to move.  self.ticks = -1 like ConnectFour.
+
+      pass
+   def getCurrentPlayer(self, state=None):
+      # TODO: read state[14] and return it as an int
+
+      pass
+   def getLegalMoves(self, state=None):
+      # TODO: pit numbers 0..5 that are non-empty for the player to move
+
+      pass
+   def getSuccessor(self, move, state):
+      # TODO: copy first (search relies on this), then:
+      #   1. pick up the seeds, sow them one by one, skipping the opponent's store
+      #   2. note where the last seed landed
+      #   3. capture rule (was the pit empty before the seed landed?)
+      #   4. end-of-game sweep
+      #   5. set state[14] for the next turn (extra turn or flip)
+      pass
+   def isTerminal(self, state=None):
+      pass
+   def getWinner(self, state=None):
+      # 0 or 1 by larger store, -1 for a draw (and -1 if the game isn't over yet)
+      pass
+   def getFeatures(self, state, player, featureSet='shared'):
+      # TODO: return a dict with each value scaled to roughly [-1, 1]
+      pass
+   def render(self, state=None):
+      # TODO: a text picture of the board
+      pass
+   # LAST: fill HEURISTIC_WEIGHTS
  
  
 class Wallz(Problem):
-    '''Wallz = Quoridor. Race your pawn to the opposite side of the board. On your turn,
+    '''Wallz = Quoridor. Race your pawn to the opposite side of the board. On your turn
     either move your pawn one step (with Quoridor's jump rules) or place a wall that
     lengthens the opponent's path. A wall may never completely cut a pawn off from its goal.
  
@@ -343,9 +377,35 @@ class Wallz(Problem):
     middle and must reach row size-1. Defaults are the standard 9x9 board with 10 walls
     each (up to 2*8*8 = 128 wall placements plus pawn moves per turn), but size,
     walls and maxPlies are configurable so experiments can run on smaller boards.
-    If maxPlies moves are made without a winner, the game is a draw.'''
+    If maxPlies moves are made without a winner the game is a draw.'''
     
     HEURISTIC_WEIGHTS = {
         'shared': {},
         'custom': {},
     }
+      def __init__(self, size=9, walls=10, maxPlies=200):
+         # TODO: save settings, build state (pawns at bottom/top middle, 10 walls each,
+         #       player 0 to move), self.ticks = -1
+      def getCurrentPlayer(self, state=None):
+         # TODO: default state, return player slot as int
+      def _isBlocked(self, state, r1, c1, r2, c2):
+         # TODO: True if a wall sits between two neighbouring squares
+      def _pawnMoves(self, state, player):
+         # TODO: up/down/left/right minus blocked (jumps later)
+      def _shortestPath(self, state, player):
+         # TODO: BFS to goal row; steps or None.  CHECK: empty 9x9 -> 8
+      def _wallMoves(self, state, player):
+         # TODO: no overlap/crossing; BOTH players must still have a path.  CHECK: opening -> 128
+      def getLegalMoves(self, state=None):
+         # TODO: pawn moves + wall moves.  CHECK: opening -> 131
+      def getSuccessor(self, move, state):
+         # TODO: copy; apply pawn move or wall (-1 wall left); plies+1; flip player
+      def isTerminal(self, state=None):
+         # TODO: a pawn on its goal row, or plies >= maxPlies
+      def getWinner(self, state=None):
+         # TODO: 0/1 for goal reached, -1 for draw or not over
+      def getFeatures(self, state, player, featureSet='shared'):
+         # TODO: path_diff, walls_diff (+ my_progress, opp_progress for 'custom'), scaled to ~[-1,1]
+      def render(self, state=None):
+         # TODO: text grid with pawns and walls
+      # LAST: fill HEURISTIC_WEIGHTS 
