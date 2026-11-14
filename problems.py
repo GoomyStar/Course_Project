@@ -561,13 +561,50 @@ class Wallz(Problem):
                next_frontier.append((nr, nc))
          frontier = next_frontier
       return None                    # no way to reach the goal row
-      def _wallMoves(self, state, player):
-         # TODO: no overlap/crossing; BOTH players must still have a path.  CHECK: opening -> 128
-         pass
+   def _wallMoves(self, state, player):
+      moves = []
+      if state[4 + player] <= 0:
+         return moves                       # no walls left
+
+      H = self._H(state)
+      V = self._V(state)
+      N = self.N
+
+      for r in range(N - 1):
+         for c in range(N - 1):
+            # horizontal wall under (r, c)
+            ok = True
+            if H[r][c] == 1 or V[r][c] == 1:
+               ok = False                   # spot taken, or crosses a vertical wall
+            if c > 0 and H[r][c - 1] == 1:
+               ok = False                   # overlaps the wall to its left
+            if c < N - 2 and H[r][c + 1] == 1:
+               ok = False                   # overlaps the wall to its right
+            if ok:
+               test = state.copy()
+               self._H(test)[r][c] = 1
+               if self.shortestPath(test, 0) is not None and self.shortestPath(test, 1) is not None:
+                  moves.append((1, r, c))
+
+            # vertical wall right of (r, c): the same idea, turned 90 degrees
+            ok = True
+            if V[r][c] == 1 or H[r][c] == 1:
+               ok = False                   # spot taken, or crosses a horizontal wall
+            if r > 0 and V[r - 1][c] == 1:
+               ok = False                   # overlaps the wall above it
+            if r < N - 2 and V[r + 1][c] == 1:
+               ok = False                   # overlaps the wall below it
+            if ok:
+               test = state.copy()
+               self._V(test)[r][c] = 1
+               if self.shortestPath(test, 0) is not None and self.shortestPath(test, 1) is not None:
+                  moves.append((2, r, c))
+      return moves
    def getLegalMoves(self, state=None):
       if state is None:
          state = self.state
-      return self._pawnMoves(state, int(state[6]))
+      player = int(state[6])
+      return self._pawnMoves(state, player) + self._wallMoves(state, player)
    def getSuccessor(self, move, state):
       new = state.copy()
       player = int(new[6])
