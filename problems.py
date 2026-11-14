@@ -7,29 +7,33 @@ import cv2
 
 class Game:
     # maxMoves lets a demo stop a long game early (None = play until the game ends)
-    def __init__(self, problem, pZero, pOne, verbose=True, maxMoves=None):
-      self.problem = problem
-      self.players = [pZero,pOne]
-      self.verbose = verbose
-      self.maxMoves = maxMoves
+    # (used by demo.py for Mancala and Wallz, where a random game can be long)
+    def __init__(self, problem, pZero, pOne,verbose=True, maxMoves=None):
+      self.problem = problem      
+      self.players = [pZero,pOne]   
+      self.verbose = verbose   
+      self.maxMoves = maxMoves       # None means "no limit"
       if self.verbose:
-         self.problem.showState()
+         self.problem.showState()               
     def playGame(self):
-      played = 0
-      while self.problem.isTerminal()==False:
+      played = 0                     # number of moves made so far in this call (used for the maxMoves cutoff)
+      while self.problem.isTerminal()==False:           
+         # demo cutoff: stop early and report that nobody has won yet (-1, the same value as a draw)
          if self.maxMoves is not None and played >= self.maxMoves:
             print(f"(demo stopped after {played} moves; game not finished)")
             return -1
          # ask the problem whose turn it is, instead of alternating blindly:
          # Mancala gives the same player another turn after landing in their store
          pCur = self.problem.getCurrentPlayer()
-         move = self.players[pCur].getMove(self.problem)
+         move = self.players[pCur].getMove(self.problem)           
          self.problem.doMove(move)
-         played += 1
+         played += 1                    # count this move toward the cutoff
          if self.verbose:
+            # say who moved and what they played (instead of dumping the raw state array,
+            # which is 136 numbers for Wallz), then draw the board after the move
             print(f"Move {self.problem.ticks}: {self.players[pCur]} (player {pCur}) played {move}")
             self.problem.showState()
-
+        
       wIndex = self.problem.getWinner()
       winner = self.players[wIndex]
       if wIndex == -1:
@@ -39,8 +43,8 @@ class Game:
       if self.verbose:
          self.problem.showState(4000)
       return wIndex
-
-
+ 
+ 
 class Problem:
    '''Shared helpers for every problem (see the interface in the module docstring).'''
    HEURISTIC_WEIGHTS = {}   # featureSet name -> {feature: hand-picked weight}
@@ -80,9 +84,12 @@ class TicTacToe:
       self.state = np.zeros((3,3))      
       self.ticks=-1      
    def getCurrentPlayer(self, state=None):
+      # added so Game can ask any problem (including this one) whose turn it is
       if state is None:
          state = self.state
-      return int(np.sum(np.abs(state)) % 2)     # even number of marks -> player 0
+      # count the marks on the board: even number -> player 0's turn, odd -> player 1's turn
+      # (same rule getLegalMoves uses to pick the mark to place)
+      return int(np.sum(np.abs(state)) % 2)
    def getLegalMoves(self, state=None):
       if state is None:
          state = self.state
@@ -539,39 +546,81 @@ class Wallz(Problem):
             continue
          moves.append((0, nr, nc))
       return moves
-   def shortestPath(self, state, player):
+   def _bfsPath(self, state, player):
+      # breadth-first search from the pawn to its goal row. Returns the list of squares
+      # on a shortest path (start square first), or None if the goal can't be reached.
+      # Speed: H and V are turned into plain lists ONCE here (not once per step), and the
+      # visited squares are kept in a set so "have I been here?" is a fast lookup.
+      N = self.N
+      H = self._H(state).tolist()
+      V = self._V(state).tolist()
       r = int(state[2 * player])
       c = int(state[2 * player + 1])
       if player == 0:
          goal = 0
       else:
-         goal = self.N - 1
+         goal = N - 1
 
+      start = (r, c)
       if r == goal:
-         return 0
+         return [start]
 
-      visited = [(r, c)]
-      frontier = [(r, c)]            # squares reached in the previous round
-      steps = 0
+      parent = {start: None}         # square -> the square we came from (also marks it visited)
+      frontier = [start]             # squares reached in the previous round
       while len(frontier) > 0:
-         steps = steps + 1
          next_frontier = []
          for square in frontier:
-            for d in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-               nr = square[0] + d[0]
-               nc = square[1] + d[1]
-               if nr < 0 or nr >= self.N or nc < 0 or nc >= self.N:
-                  continue
-               if (nr, nc) in visited:
-                  continue
-               if self._isBlocked(state, square[0], square[1], nr, nc):
-                  continue
-               if nr == goal:
-                  return steps
-               visited.append((nr, nc))
-               next_frontier.append((nr, nc))
+            r = square[0]
+            c = square[1]
+            # same wall rules as _isBlocked, written out for the four directions
+            # up: the wall under row r-1 must not cover this column
+            if r > 0 and (r - 1, c) not in parent:
+               if not ((c < N - 1 and H[r - 1][c] == 1) or (c > 0 and H[r - 1][c - 1] == 1)):
+                  parent[(r - 1, c)] = square
+                  next_frontier.append((r - 1, c))
+            # down: the wall under row r must not cover this column
+            if r < N - 1 and (r + 1, c) not in parent:
+               if not ((c < N - 1 and H[r][c] == 1) or (c > 0 and H[r][c - 1] == 1)):
+                  parent[(r + 1, c)] = square
+                  next_frontier.append((r + 1, c))
+            # left: the wall right of column c-1 must not cover this row
+            if c > 0 and (r, c - 1) not in parent:
+               if not ((r < N - 1 and V[r][c - 1] == 1) or (r > 0 and V[r - 1][c - 1] == 1)):
+                  parent[(r, c - 1)] = square
+                  next_frontier.append((r, c - 1))
+            # right: the wall right of column c must not cover this row
+            if c < N - 1 and (r, c + 1) not in parent:
+               if not ((r < N - 1 and V[r][c] == 1) or (r > 0 and V[r - 1][c] == 1)):
+                  parent[(r, c + 1)] = square
+                  next_frontier.append((r, c + 1))
+         # did this round reach the goal row? if so, walk the parents back to build the path
+         for square in next_frontier:
+            if square[0] == goal:
+               path = [square]
+               while parent[path[-1]] is not None:
+                  path.append(parent[path[-1]])
+               path.reverse()
+               return path
          frontier = next_frontier
       return None                    # no way to reach the goal row
+   def shortestPath(self, state, player):
+      # number of pawn steps needed to reach the goal row (None if the goal can't be reached)
+      path = self._bfsPath(state, player)
+      if path is None:
+         return None
+      return len(path) - 1
+   def _pathEdges(self, path):
+      # the steps along a path, each written as (smaller square, larger square) so a
+      # step is the same whichever way it is walked
+      edges = set()
+      for k in range(len(path) - 1):
+         a = path[k]
+         b = path[k + 1]
+         if a < b:
+            edges.add((a, b))
+         else:
+            edges.add((b, a))
+      return edges
    def _wallMoves(self, state, player):
       moves = []
       if state[4 + player] <= 0:
@@ -581,9 +630,15 @@ class Wallz(Problem):
       V = self._V(state)
       N = self.N
 
+      # Speed: a new wall can only cut a pawn off from its goal if it blocks every route.
+      # So find ONE shortest path for each pawn now. A wall that blocks no step of that path
+      # leaves the path open, so it is legal without any more searching. Only walls that
+      # touch a path step need the full "can still reach the goal" check.
+      paths = [self._pathEdges(self._bfsPath(state, 0)), self._pathEdges(self._bfsPath(state, 1))]
+
       for r in range(N - 1):
          for c in range(N - 1):
-            # horizontal wall under (r, c)
+            # horizontal wall under (r, c): blocks the up/down steps in columns c and c+1
             ok = True
             if H[r][c] == 1 or V[r][c] == 1:
                ok = False                   # spot taken, or crosses a vertical wall
@@ -592,9 +647,8 @@ class Wallz(Problem):
             if c < N - 2 and H[r][c + 1] == 1:
                ok = False                   # overlaps the wall to its right
             if ok:
-               test = state.copy()
-               self._H(test)[r][c] = 1
-               if self.shortestPath(test, 0) is not None and self.shortestPath(test, 1) is not None:
+               blocked = [((r, c), (r + 1, c)), ((r, c + 1), (r + 1, c + 1))]
+               if self._wallLeavesGoals(state, paths, blocked, 1, r, c):
                   moves.append((1, r, c))
 
             # vertical wall right of (r, c): the same idea, turned 90 degrees
@@ -606,11 +660,28 @@ class Wallz(Problem):
             if r < N - 2 and V[r + 1][c] == 1:
                ok = False                   # overlaps the wall below it
             if ok:
-               test = state.copy()
-               self._V(test)[r][c] = 1
-               if self.shortestPath(test, 0) is not None and self.shortestPath(test, 1) is not None:
+               blocked = [((r, c), (r, c + 1)), ((r + 1, c), (r + 1, c + 1))]
+               if self._wallLeavesGoals(state, paths, blocked, 2, r, c):
                   moves.append((2, r, c))
       return moves
+   def _wallLeavesGoals(self, state, paths, blocked, kind, r, c):
+      # True if placing this wall still lets BOTH pawns reach their goal rows.
+      # `blocked` = the two pawn steps the wall would block, `paths` = each pawn's current path steps.
+      touches0 = blocked[0] in paths[0] or blocked[1] in paths[0]
+      touches1 = blocked[0] in paths[1] or blocked[1] in paths[1]
+      if not touches0 and not touches1:
+         return True                        # both current paths stay open
+      test = state.copy()
+      if kind == 1:
+         self._H(test)[r][c] = 1
+      else:
+         self._V(test)[r][c] = 1
+      # only a pawn whose path was touched needs re-checking
+      if touches0 and self._bfsPath(test, 0) is None:
+         return False
+      if touches1 and self._bfsPath(test, 1) is None:
+         return False
+      return True
    def getLegalMoves(self, state=None):
       if state is None:
          state = self.state
