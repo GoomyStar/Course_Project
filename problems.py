@@ -495,10 +495,39 @@ class Wallz(Problem):
       return state[8 + self.M : 8 + 2 * self.M].reshape(self.N - 1, self.N - 1)
 
    def _isBlocked(self, state, r1, c1, r2, c2):
-         # TODO: True if a wall sits between two neighbouring squares
-      def _pawnMoves(self, state, player):
-         # TODO: up/down/left/right minus blocked (jumps later)
-         pass
+      H = self._H(state)
+      V = self._V(state)
+      N = self.N
+      if c1 == c2:                       # moving up or down
+         top = min(r1, r2)
+         if c1 < N - 1 and H[top][c1 - 1] == 1:
+            return True
+         if c1 > 0 and H[top][c1] == 1:
+            return True
+         return False
+      else:                              # moving left or right
+         left = min(c1, c2)
+         if r1 < N - 1 and V[r1][left] == 1:
+            return True
+         if r1 > 0 and V[r1 - 1][left] == 1:
+            return True
+         return False
+   def _pawnMoves(self, state, player):
+      r = int(state[2 * player])
+      c = int(state[2 * player + 1])
+      moves = []
+      directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]   # up, down, left, right
+      for d in directions:
+         nr = r + d[0]
+         nc = c + d[1]
+         # stay on the board
+         if nr < 0 or nr >= self.N or nc < ___ or nc >= self.N:
+            continue
+         # is a wall in the way?
+         if self._isBlocked(state, r, c, nr, nc):
+            continue
+         moves.append((0, nr, nc))
+      return moves
       def _shortestPath(self, state, player):
          # TODO: BFS to goal row; steps or None.  CHECK: empty 9x9 -> 8
          pass
