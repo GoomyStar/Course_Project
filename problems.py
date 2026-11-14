@@ -333,16 +333,26 @@ class Mancala(Problem):
     }
 
    def __init__(self):
-      # TODO: self.state = length-15 array: SEEDS in every pit, 0 in both stores,
-      #       player 0 to move.  self.ticks = -1 like ConnectFour.
+      self.state = np.full(15, self.SEEDS, dtype=int)   # 15 numbers total for spaces and stores.
+      self.state[6] = 0                                 # player 0's store
+      self.state[13] = 0                                # player 1's store
+      self.state[14] = 0                                # player 0 moves first
+      self.ticks = -1
 
-      pass
    def getCurrentPlayer(self, state=None):
-      # TODO: read state[14] and return it as an int
+      if state is None:
+         state = self.state
+      return int(state[14])
 
-      pass
    def getLegalMoves(self, state=None):
-      # TODO: pit numbers 0..5 that are non-empty for the player to move
+      if state is None:
+         state = self.state
+      base = 7 * int(state[14])          # Initial states of 0 for player 0, and 7 for player 1
+      moves = []
+      for i in range(self.PITS):
+         if state[base + i] > 0:
+            moves.append(i)
+      return moves
 
       pass
    def getSuccessor(self, move, state):
