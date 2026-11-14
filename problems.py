@@ -500,9 +500,9 @@ class Wallz(Problem):
       N = self.N
       if c1 == c2:                       # moving up or down
          top = min(r1, r2)
-         if c1 < N - 1 and H[top][c1 - 1] == 1:
+         if c1 < N - 1 and H[top][c1] == 1:
             return True
-         if c1 > 0 and H[top][c1] == 1:
+         if c1 > 0 and H[top][c1 - 1] == 1:
             return True
          return False
       else:                              # moving left or right
@@ -564,9 +564,10 @@ class Wallz(Problem):
       def _wallMoves(self, state, player):
          # TODO: no overlap/crossing; BOTH players must still have a path.  CHECK: opening -> 128
          pass
-      def getLegalMoves(self, state=None):
-         # TODO: pawn moves + wall moves.  CHECK: opening -> 131
-         pass
+   def getLegalMoves(self, state=None):
+      if state is None:
+         state = self.state
+      return self._pawnMoves(state, int(state[6]))
    def getSuccessor(self, move, state):
       new = state.copy()
       player = int(new[6])
@@ -605,9 +606,20 @@ class Wallz(Problem):
       if state[2] == self.N - 1:
          return 1
       return -1
-      def getFeatures(self, state, player, featureSet='shared'):
-         # TODO: path_diff, walls_diff (+ my_progress, opp_progress for 'custom'), scaled to ~[-1,1]
-         pass
+   def getFeatures(self, state, player, featureSet='shared'):
+      other = 1 - player
+      mine = self.shortestPath(state, player)
+      theirs = self.shortestPath(state, other)
+      N = float(self.N)
+
+      f = {
+         'path_diff': (theirs - mine) / N,
+         'walls_diff': (state[4 + player] - state[4 + other]) / float(self.W),
+      }
+      if featureSet == 'custom':
+         f['my_progress'] = (N - 1 - mine) / N
+         f['opp_progress'] = (N - 1 - theirs) / N
+      return f
       def render(self, state=None):
          # TODO: text grid with pawns and walls
          pass
